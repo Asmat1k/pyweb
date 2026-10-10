@@ -35,7 +35,7 @@ CSS и JavaScript; Python на сервере публикации не нуже
 | 5. SSG и каркас | Установлены MkDocs и Material, выполнен `mkdocs new .` | Написаны 11 страниц и настроена навигация |
 | 6. Локальная сборка | Выполнены `mkdocs serve` и `mkdocs build --strict` | Предпросмотр HTTP 200, строгая сборка: exit code 0 |
 | 7. GitHub | Исходники отправлены в `Asmat1k/pyweb`, ветка `main` | Первый коммит `5a98204` |
-| 8. GitHub Actions | Добавлены `pages.yml` и `helios.yml` | Проверка запуска Pages ожидается; Helios подготовлен с заглушками |
+| 8. GitHub Actions | Добавлены `pages.yml` и `helios.yml` | Pages: успешная сборка и публикация; Helios: шаблон с заглушками |
 
 Подробные команды для воспроизведения — в [инструкции](running.md).
 
@@ -92,8 +92,11 @@ GitHub Pages принимает артефакт через официальны
 `mkdocs build --strict` завершилась с кодом 0. Тема выводит информационный баннер
 о MkDocs 2.0; проект использует закреплённую версию 1.6.1, ошибок строгой сборки нет.
 
-Исходники отправлены на GitHub. Статус публикации Pages фиксируется после
-фактического запуска workflow.
+Исходники отправлены в [Asmat1k/pyweb](https://github.com/Asmat1k/pyweb).
+GitHub Pages включён в режиме GitHub Actions. Сборка и публикация подтверждены
+[успешным запуском № 38073454189](https://github.com/Asmat1k/pyweb/actions/runs/38073454189)
+для коммита `7897769`. Сайт доступен по адресу
+[https://asmat1k.github.io/pyweb/](https://asmat1k.github.io/pyweb/).
 
 Первый запуск CI остановился на установке Python 3.15: эта версия не была доступна
 в `actions/setup-python` для Ubuntu 24.04. После диагностики локальное окружение

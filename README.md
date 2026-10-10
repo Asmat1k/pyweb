@@ -42,7 +42,7 @@ task1.md              Исходное задание
 
 ## Публикация
 
-Целевой адрес GitHub Pages: <https://asmat1k.github.io/pyweb/>.
+Опубликованный сайт: <https://asmat1k.github.io/pyweb/>.
 В репозитории выбрать **Settings → Pages → Source → GitHub Actions**.
 Workflow `GitHub Pages` собирает сайт с `--strict`, затем публикует `site/`.
 Pull request запускает только сборку. Push в `main` и ручной запуск на `main`

@@ -1,0 +1,60 @@
+name: Helios
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helios
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Enable only after replacing the documented placeholders with real secrets.
+    if: github.ref == 'refs/heads/main' && vars.HELIOS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HELIOS_USER: ${{ secrets.HELIOS_USER }}
+      HELIOS_SSH_PRIVATE_KEY: ${{ secrets.HELIOS_SSH_PRIVATE_KEY }}
+      HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.15'
+          cache: pip
+      - name: Configure SSH
+        shell: bash
+        run: |
+          [[ "$HELIOS_USER" =~ ^s[0-9]+$ ]] || { echo "::error::Set HELIOS_USER to your Helios student login"; exit 1; }
+          [[ -n "$HELIOS_SSH_PRIVATE_KEY" && -n "$HELIOS_SSH_KNOWN_HOSTS" ]] || { echo "::error::Set SSH secrets before deployment"; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$HELIOS_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$HELIOS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<'SSH'
+          Host helios-deploy
+            HostName helios.cs.ifmo.ru
+            Port 2222
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+          SSH
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Build strictly for Helios
+        run: SITE_URL="https://se.ifmo.ru/~${HELIOS_USER}/pyweb/" python -m mkdocs build --strict
+      - name: Publish static HTML
+        run: |
+          ssh -l "$HELIOS_USER" helios-deploy 'test ! -L ~/public_html && test ! -L ~/public_html/pyweb && mkdir -p ~/public_html/pyweb && chmod 755 ~/public_html/pyweb'
+          rsync -rtz --delete --chmod=D755,F644 -e ssh site/ "${HELIOS_USER}@helios-deploy:public_html/pyweb/"
+      - name: Remove runner credentials
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.ssh/config

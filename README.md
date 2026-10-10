@@ -10,11 +10,11 @@
 
 ## Запуск
 
-Требуется Python 3.15. Используются MkDocs 1.6.1 и Material 9.7.7.
+Используется Python 3.14.8, MkDocs 1.6.1 и Material 9.7.7.
 
 ```bash
-python3 -m pip install virtualenv==21.14.6
-python3 -m virtualenv .venv
+python3.14 -m pip install virtualenv==21.14.6
+python3.14 -m virtualenv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 mkdocs serve

@@ -2,11 +2,13 @@
 
 ## 1. Python
 
-Для воспроизведения окружения используется **Python 3.15**. На рабочей машине
-уже установлен Python 3.15.0, поэтому повторная установка не потребовалась.
+Для воспроизведения окружения используется **Python 3.14.8**, поддерживаемая версия
+Python, доступная и на рабочей машине, и в GitHub Actions. Первоначально окружение
+создавалось на Python 3.15.0, но эта версия ещё отсутствовала в каталоге
+`actions/setup-python` для Ubuntu. Окружение переведено на 3.14.8.
 
 ```bash
-python3 --version
+python3.14 --version
 ```
 
 Если интерпретатора нет, установите его с [python.org](https://www.python.org/downloads/).
@@ -15,7 +17,7 @@ python3 --version
 ## 2. Virtualenv
 
 ```bash
-python3 -m pip install virtualenv==21.14.6
+python3.14 -m pip install virtualenv==21.14.6
 ```
 
 На машине подготовки `virtualenv` уже установлен. Системный Python Homebrew
@@ -29,7 +31,7 @@ python3 -m pip install virtualenv==21.14.6
 ```bash
 mkdir pyweb
 cd pyweb
-virtualenv --python python3 .venv
+virtualenv --python python3.14 .venv
 source .venv/bin/activate
 ```
 

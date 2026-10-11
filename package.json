@@ -1,0 +1,11 @@
+{
+  "name": "websocket-webtransport-demo",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "python -m mkdocs serve",
+    "benchmark": "node scripts/benchmark.mjs",
+    "test": "node --test"
+  }
+}

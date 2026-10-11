@@ -16,7 +16,7 @@
 - [WebSocket](docs/websocket.md) и [WebTransport](docs/webtransport.md)
 - [Методика](docs/methodology.md) и [сценарии экспериментов](docs/scenarios.md)
 - [Результаты и предварительные выводы](docs/results.md)
-- [Ограничения](docs/limitations.md) и [источники](docs/references.md)
+- [Источники](docs/references.md)
 
 Материалы доступны на [сайте](https://asmat1k.github.io/pyweb/).
 

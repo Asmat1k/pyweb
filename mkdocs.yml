@@ -46,7 +46,6 @@ nav:
     - WebTransport: webtransport.md
   - Эксперимент:
     - Сценарии экспериментов: scenarios.md
-    - Запуск и тесты: running.md
     - Результаты: results.md
   - Источники: references.md
 
@@ -73,7 +72,3 @@ validation:
     anchors: warn
     absolute_links: warn
     unrecognized_links: warn
-
-extra_javascript:
-  - path: assets/javascripts/demo.js
-    type: module

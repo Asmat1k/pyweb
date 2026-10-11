@@ -41,11 +41,12 @@ nav:
   - Главная: index.md
   - Область сравнения: about.md
   - Методика: methodology.md
-  - WebSocket: websocket.md
-  - WebTransport: webtransport.md
-  - Сценарии экспериментов: scenarios.md
-  - Результаты: results.md
-  - Ограничения: limitations.md
+  - Технологии:
+    - WebSocket: websocket.md
+    - WebTransport: webtransport.md
+  - Эксперимент:
+    - Сценарии экспериментов: scenarios.md
+    - Результаты: results.md
   - Источники: references.md
 
 plugins:

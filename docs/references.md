@@ -14,11 +14,3 @@
 7. Hamilton R. [RFC 9220: Bootstrapping WebSockets with HTTP/3](https://www.rfc-editor.org/rfc/rfc9220.html). IETF, 2022. Альтернативное отображение WebSocket.
 8. W3C. [WebTransport API](https://www.w3.org/TR/webtransport/). Интерфейсы браузера и модель доставки.
 9. IETF WEBTRANS WG. [WebTransport over HTTP/3](https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/). Развивающаяся спецификация протокола; не следует считать её неизменным RFC.
-
-## Генерация и публикация сайта
-
-10. [MkDocs: Configuration](https://www.mkdocs.org/user-guide/configuration/). Настройки генератора и проверки ссылок.
-11. [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/). Тема, навигация и поиск.
-12. GitHub. [Using custom workflows with GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages). Сборка и публикация артефакта.
-13. GitHub. [Шаблон Static HTML](https://github.com/actions/starter-workflows/blob/main/pages/static.yml). Основа последовательности configure → upload → deploy.
-14. [rtc-benchmark: репозиторий-пример](https://github.com/HeavenlyGandalf/rtc-benchmark) и [опубликованный сайт](https://heavenlygandalf.github.io/rtc-benchmark/). Ориентир структуры документации и размещения на Helios, а не источник измерений WebSocket.

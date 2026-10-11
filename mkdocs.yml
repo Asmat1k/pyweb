@@ -39,16 +39,13 @@ theme:
 
 nav:
   - Главная: index.md
-  - О исследовании: about.md
-  - Технологии:
-      - WebSocket: websocket.md
-      - WebTransport: webtransport.md
+  - Область сравнения: about.md
   - Методика: methodology.md
+  - WebSocket: websocket.md
+  - WebTransport: webtransport.md
   - Сценарии экспериментов: scenarios.md
-  - Сравнение и результаты: results.md
+  - Результаты: results.md
   - Ограничения: limitations.md
-  - Запуск и публикация: running.md
-  - Отчёт по заданию 1: report.md
   - Источники: references.md
 
 plugins:

@@ -15,7 +15,7 @@ concurrency:
 jobs:
   deploy:
     # Enable only after replacing the documented placeholders with real secrets.
-    if: github.ref == 'refs/heads/main' && vars.HELIOS_ENABLED == 'true'
+    if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && vars.HELIOS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

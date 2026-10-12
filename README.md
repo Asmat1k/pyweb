@@ -4,32 +4,84 @@
 модели доставки, время подключения, задержка сообщений, накладные расходы
 и поведение при потерях пакетов.
 
-| Режим | Транспорт | Доставка |
-|---|---|---|
-| WebSocket | TLS/TCP | Надёжная, упорядоченная |
-| WebTransport streams | HTTP/3 поверх QUIC | Надёжная, порядок внутри потока |
-| WebTransport datagrams | HTTP/3 поверх QUIC | Без гарантии доставки и порядка |
+В проекте сравниваются защищённый WebSocket (`wss://`) поверх TCP и WebTransport
+поверх HTTP/3 и QUIC. Материалы включают теоретический обзор, методику и сценарии
+будущих экспериментов; сайт представлен в вариантах на четырёх генераторах.
+
+## WebSocket
+
+[WebSocket](https://github.com/whatwg/websockets) — постоянное двунаправленное
+соединение между браузером и сервером для обмена текстовыми и бинарными сообщениями.
+В рассматриваемом варианте `wss://` данные защищены TLS и передаются поверх TCP:
+доставка надёжная, порядок и границы сообщений сохраняются. Потеря пакета может
+задержать последующие сообщения до восстановления пропущенных данных.
+
+Технология подходит для чатов, уведомлений, команд и совместного редактирования,
+когда достаточно одного упорядоченного канала. Приложение отвечает за контроль
+очередей и восстановление сеанса после разрыва. По сравнению с WebTransport
+WebSocket проще вписать в существующую инфраструктуру, но он не предоставляет
+независимые потоки и передачу без гарантии доставки.
+
+## WebTransport
+
+[WebTransport](https://github.com/w3c/webtransport) — API обмена между браузером
+и сервером; в проекте рассматривается вариант поверх HTTP/3 и QUIC/UDP
+со встроенным TLS 1.3. В одной сессии доступны надёжные однонаправленные
+и двунаправленные потоки байтов, а также ненадёжные дейтаграммы. Потоки сохраняют
+порядок внутри каждого потока; дейтаграммы сохраняют границы записей,
+но не гарантируют доставку и порядок.
+
+В отличие от одного TCP-канала WebSocket, потеря данных в одном потоке QUIC
+не блокирует доставку других потоков, хотя они разделяют ресурсы соединения.
+Это позволяет сочетать надёжные команды с быстро устаревающими обновлениями,
+например координатами в игре или телеметрией. Нужны поддержка HTTP/3 и UDP,
+совместимые клиент и сервер; меньшая задержка не гарантирована и требует измерений.
 
 ## Материалы
 
-- [Область сравнения](docs/about.md)
-- [WebSocket](docs/websocket.md) и [WebTransport](docs/webtransport.md)
-- [Методика](docs/methodology.md) и [сценарии экспериментов](docs/scenarios.md)
-- [Результаты и предварительные выводы](docs/results.md)
-- [Источники](docs/references.md)
+- [Область сравнения](https://github.com/Asmat1k/pyweb/blob/main/docs/about.md)
+- [WebSocket](https://github.com/Asmat1k/pyweb/blob/main/docs/websocket.md) и [WebTransport](https://github.com/Asmat1k/pyweb/blob/main/docs/webtransport.md)
+- [Методика](https://github.com/Asmat1k/pyweb/blob/main/docs/methodology.md) и [сценарии экспериментов](https://github.com/Asmat1k/pyweb/blob/main/docs/scenarios.md)
+- [Результаты и предварительные выводы](https://github.com/Asmat1k/pyweb/blob/main/docs/results.md)
+- [Источники](https://github.com/Asmat1k/pyweb/blob/main/docs/references.md)
 
 Материалы доступны на [сайте](https://asmat1k.github.io/pyweb/).
 
 **Статус исследования:** опубликованы теоретическое сравнение и план экспериментов.
 Измерения не проводились; прочерки в таблицах обозначают отсутствие данных.
 
+## Генераторы сайта и ветки
 
-## CI/CD
+Ветки содержат варианты сайта на разных генераторах. Настройки и инструкции
+по сборке доступны на главной странице каждой ветки.
 
-Автоматическая публикация на GitHub Pages и Helios выполняется только при push
-в `main`. Pull request в `main` запускает сборку без публикации.
-В других ветках workflows запускаются вручную: Actions → GitHub Pages или
-Helios → Run workflow → выбрать ветку → Run workflow. Ручной запуск собирает
-и публикует выбранную ветку. Helios требует `HELIOS_ENABLED=true` и секреты
-`HELIOS_USER`, `HELIOS_SSH_PRIVATE_KEY`, `HELIOS_SSH_KNOWN_HOSTS`.
-Окружение `github-pages` должно разрешать публикацию из выбранной ветки.
+### MkDocs — `main`
+
+[MkDocs](https://github.com/mkdocs/mkdocs) создаёт документацию из Markdown
+с конфигурацией YAML. В [ветке `main`](https://github.com/Asmat1k/pyweb/tree/main)
+используется тема Material for MkDocs; материалы находятся в `docs/`,
+настройки — в `mkdocs.yml`. Сборка: `python -m mkdocs build --strict`.
+
+### Pelican — `pelican`
+
+[Pelican](https://github.com/getpelican/pelican) — генератор статических сайтов
+на Python с поддержкой Markdown и reStructuredText. В
+[ветке `pelican`](https://github.com/Asmat1k/pyweb/tree/pelican) материалы оформлены
+как статические страницы, настройки находятся в `pelicanconf.py`.
+Сборка: `pelican docs -s pelicanconf.py`.
+
+### Quarto — `quarto`
+
+[Quarto](https://github.com/quarto-dev/quarto-cli) — система публикации
+научных и технических документов и сайтов. В
+[ветке `quarto`](https://github.com/Asmat1k/pyweb/tree/quarto) используются
+страницы `docs/*.qmd` и конфигурация `docs/_quarto.yml`.
+Сборка: `quarto render docs`.
+
+### Sphinx — `sphinx`
+
+[Sphinx](https://github.com/sphinx-doc/sphinx) — генератор документации
+с перекрёстными ссылками и несколькими форматами вывода. В
+[ветке `sphinx`](https://github.com/Asmat1k/pyweb/tree/sphinx) Markdown обрабатывает
+MyST-Parser, настройки находятся в `docs/conf.py`.
+Сборка: `python -m sphinx -b dirhtml -W docs site`.

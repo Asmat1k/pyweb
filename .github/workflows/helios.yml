@@ -52,10 +52,9 @@ jobs:
           slug = re.sub(r'[^a-z0-9-]+', '-', branch.lower()).strip('-')[:40] or 'branch'
           target = 'main' if branch == 'main' else slug + '-' + hashlib.sha256(branch.encode()).hexdigest()[:12]
           path = 'pyweb' if target == 'main' else 'pyweb-previews/' + target
-          release = os.environ['GITHUB_SHA'] + '-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
+          release = f'{os.environ["GITHUB_SHA"]}-{os.environ["GITHUB_RUN_ID"]}-{os.environ["GITHUB_RUN_ATTEMPT"]}'
           with open(os.environ['GITHUB_ENV'], 'a') as f:
-              # GITHUB_ENV передаёт вычисленные значения следующим шагам CI.
-              f.write(f'TARGET={target}\nPUBLIC_PATH={path}\nRELEASE={release}\n')
+              f.write(f'TARGET={target}\nRELEASE={release}\n')
               f.write(f'SITE_URL=https://se.ifmo.ru/~{os.environ["HELIOS_USER"]}/{path}/\n')
           PY
       - name: Detect generator

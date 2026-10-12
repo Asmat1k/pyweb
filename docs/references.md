@@ -1,3 +1,6 @@
+Title: Источники
+Slug: references
+
 # Источники
 
 1. Bondar, O. Analysis of Next–Generation Internet Transport Protocols: QUIC, WebTransport, HTTP/3 / O. Bondar // Information Technologies and Systems. – 2025. – Vol. 6, No. 6. – P. 52–63. – DOI [10.15407/intechsys.2025.06.052](https://doi.org/10.15407/intechsys.2025.06.052).

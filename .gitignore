@@ -1,7 +1,7 @@
 .venv/
 venv/
-site/
-_build/
+output/
+cache/
 __pycache__/
 *.py[cod]
 .cache/

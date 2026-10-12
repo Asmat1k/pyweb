@@ -2,7 +2,7 @@ name: Helios
 
 on:
   push:
-    branches: [main]
+    branches: [main, pelican]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   deploy:
     # Enable only after replacing the documented placeholders with real secrets.
-    if: github.ref == 'refs/heads/main' && vars.HELIOS_ENABLED == 'true'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/pelican') && github.event_name != 'pull_request' && vars.HELIOS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14.8'
+          python-version: '3.13'
           cache: pip
       - name: Configure SSH
         shell: bash
@@ -49,12 +49,12 @@ jobs:
           SSH
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Build strictly for Helios
-        run: SITE_URL="https://se.ifmo.ru/~${HELIOS_USER}/pyweb/" python -m mkdocs build --strict
+      - name: Build for Helios
+        run: SITE_URL="https://se.ifmo.ru/~${HELIOS_USER}/pyweb/" pelican docs -s pelicanconf.py
       - name: Publish static HTML
         run: |
           ssh -l "$HELIOS_USER" helios-deploy 'test ! -L ~/public_html && test ! -L ~/public_html/pyweb && mkdir -p ~/public_html/pyweb && chmod 755 ~/public_html/pyweb'
-          rsync -rtz --delete --chmod=D755,F644 -e ssh site/ "${HELIOS_USER}@helios-deploy:public_html/pyweb/"
+          rsync -rtz --delete --chmod=D755,F644 -e ssh output/ "${HELIOS_USER}@helios-deploy:public_html/pyweb/"
       - name: Remove runner credentials
         if: always()
         run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.ssh/config

@@ -2,9 +2,9 @@ name: GitHub Pages
 
 on:
   push:
-    branches: [main, sphinx]
+    branches: [main]
   pull_request:
-    branches: [main, sphinx]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +28,12 @@ jobs:
       - name: Build strictly
         run: python -m sphinx -b dirhtml -W docs site
       - uses: actions/upload-pages-artifact@v3
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/sphinx') && github.event_name != 'pull_request'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         with:
           path: site
 
   deploy:
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/sphinx') && github.event_name != 'pull_request'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     permissions:

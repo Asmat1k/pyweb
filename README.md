@@ -44,10 +44,14 @@ pelican docs -s pelicanconf.py
 относительные ссылки для локальной разработки. Ссылки между документами
 используют синтаксис Pelican `({filename}methodology.md)`.
 
-GitHub Pages собирает ветки `main` и `pelican`, включая pull request,
-и публикует только push или ручной запуск этих веток. Для публикации из
+GitHub Pages автоматически собирает push и pull request в `main`,
+но автоматически публикует только push в `main`. В остальных ветках
+запуск ручной: Actions → GitHub Pages или Helios → Run workflow → выбрать
+ветку → Run workflow. Ручной запуск собирает и публикует выбранную ветку.
+Для публикации из
 `pelican` окружение `github-pages` должно разрешать эту ветку в настройках
-репозитория. Helios публикует эти же ветки только при `HELIOS_ENABLED=true`,
+репозитория. Helios публикует push в `main` или ручной запуск выбранной
+ветки только при `HELIOS_ENABLED=true`,
 с секретами `HELIOS_USER`, `HELIOS_SSH_PRIVATE_KEY` и `HELIOS_SSH_KNOWN_HOSTS`;
 адрес автоматически устанавливается в `https://se.ifmo.ru/~USER/pyweb/`.
 

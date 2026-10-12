@@ -2,9 +2,9 @@ name: GitHub Pages
 
 on:
   push:
-    branches: [main, pelican]
+    branches: [main]
   pull_request:
-    branches: [main, pelican]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +28,12 @@ jobs:
       - name: Build with Pelican
         run: pelican docs -s pelicanconf.py
       - uses: actions/upload-pages-artifact@v3
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/pelican') && github.event_name != 'pull_request'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         with:
           path: output
 
   deploy:
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/pelican') && github.event_name != 'pull_request'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     permissions:

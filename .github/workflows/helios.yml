@@ -2,7 +2,7 @@ name: Helios
 
 on:
   push:
-    branches: [main]
+    branches: [main, quarto]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   deploy:
     # Enable only after replacing the documented placeholders with real secrets.
-    if: github.ref == 'refs/heads/main' && vars.HELIOS_ENABLED == 'true'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/quarto') && github.event_name != 'pull_request' && vars.HELIOS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -24,10 +24,7 @@ jobs:
       HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.14.8'
-          cache: pip
+      - uses: quarto-dev/quarto-actions/setup@v2
       - name: Configure SSH
         shell: bash
         run: |
@@ -47,14 +44,16 @@ jobs:
             StrictHostKeyChecking yes
             ConnectTimeout 15
           SSH
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Build strictly for Helios
-        run: SITE_URL="https://se.ifmo.ru/~${HELIOS_USER}/pyweb/" python -m mkdocs build --strict
+      - name: Render website for Helios
+        env:
+          SITE_URL: https://se.ifmo.ru/~${{ secrets.HELIOS_USER }}/pyweb/
+        run: |
+          printf 'website:\n  site-url: "%s"\n' "$SITE_URL" > docs/_quarto-helios.yml
+          quarto render docs --profile helios
       - name: Publish static HTML
         run: |
           ssh -l "$HELIOS_USER" helios-deploy 'test ! -L ~/public_html && test ! -L ~/public_html/pyweb && mkdir -p ~/public_html/pyweb && chmod 755 ~/public_html/pyweb'
-          rsync -rtz --delete --chmod=D755,F644 -e ssh site/ "${HELIOS_USER}@helios-deploy:public_html/pyweb/"
+          rsync -rtz --delete --chmod=D755,F644 -e ssh docs/_site/ "${HELIOS_USER}@helios-deploy:public_html/pyweb/"
       - name: Remove runner credentials
         if: always()
         run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.ssh/config

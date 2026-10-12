@@ -1,0 +1,47 @@
+project:
+  type: website
+  output-dir: _site
+
+lang: ru
+author: Asmat1k
+
+website:
+  title: "WebTransport и WebSocket"
+  description: "Выбор технологий WebTransport и WebSocket для двунаправленной передачи данных в веб-приложениях."
+  site-url: https://asmat1k.github.io/pyweb/
+  repo-url: https://github.com/Asmat1k/pyweb
+  repo-branch: quarto
+  repo-subdir: docs
+  repo-actions: [edit, source]
+  page-navigation: true
+  back-to-top-navigation: true
+  search:
+    type: overlay
+  sidebar:
+    style: docked
+    contents:
+      - href: index.qmd
+        text: Главная
+      - href: about.qmd
+        text: Область сравнения
+      - href: methodology.qmd
+        text: Методика
+      - section: Технологии
+        contents:
+          - websocket.qmd
+          - webtransport.qmd
+      - section: Эксперимент
+        contents:
+          - href: scenarios.qmd
+            text: Сценарии экспериментов
+          - results.qmd
+      - references.qmd
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    toc: true
+    anchor-sections: true
+    code-copy: true

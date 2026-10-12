@@ -1,4 +1,6 @@
-# WebTransport и WebSocket
+---
+title: "WebTransport и WebSocket"
+---
 
 **Сравнительный анализ технологий двунаправленной передачи данных в веб-приложениях.**
 
@@ -14,9 +16,9 @@
 
 | Режим | Транспорт | Доставка |
 |---|---|---|
-| [WebSocket](websocket.md) | TLS/TCP | Надёжная, упорядоченная |
-| [WebTransport](webtransport.md) streams | HTTP/3 поверх QUIC | Надёжная, порядок внутри потока |
-| [WebTransport](webtransport.md) datagrams | HTTP/3 поверх QUIC | Без гарантии доставки и порядка |
+| [WebSocket](websocket.qmd) | TLS/TCP | Надёжная, упорядоченная |
+| [WebTransport](webtransport.qmd) streams | HTTP/3 поверх QUIC | Надёжная, порядок внутри потока |
+| [WebTransport](webtransport.qmd) datagrams | HTTP/3 поверх QUIC | Без гарантии доставки и порядка |
 
 ## Что учитывать при выборе
 
@@ -43,5 +45,5 @@
 | Накладные расходы | Объём сетевого трафика относительно полезных данных |
 | Потери пакетов | Доставку до дедлайна и изменение задержки |
 
-Условия описаны в [методике](methodology.md) и [сценариях](scenarios.md).
+Условия описаны в [методике](methodology.qmd) и [сценариях](scenarios.qmd).
 

@@ -45,3 +45,33 @@
 
 Условия описаны в [методике](methodology.md) и [сценариях](scenarios.md).
 
+
+```{toctree}
+:maxdepth: 1
+:caption: Материалы
+
+about
+methodology
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Технологии
+
+websocket
+webtransport
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Эксперимент
+
+scenarios
+results
+```
+
+```{toctree}
+:maxdepth: 1
+
+references
+```

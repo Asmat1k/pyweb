@@ -20,11 +20,14 @@ WebTransport на HTTP/3 разрабатываются отдельно в W3C 
 появление технологии в основных семействах браузеров. Это не означает
 доступность во всех старых версиях и встроенных браузерах.
 
-!!! info "Уточнение на 12 октября 2026 года"
-    API опубликован как [W3C Candidate Recommendation Snapshot от 30 июля 2026 года](https://www.w3.org/TR/2026/CR-webtransport-20260730/).
-    Для HTTP/3 опубликован [проект IETF редакции 16](https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-16).
-    Эти статусы отличаются от зафиксированных в отчёте и ещё не означают
-    окончательную W3C Recommendation или опубликованный RFC WebTransport over HTTP/3.
+:::{admonition} Уточнение на 12 октября 2026 года
+:class: note
+
+API опубликован как [W3C Candidate Recommendation Snapshot от 30 июля 2026 года](https://www.w3.org/TR/2026/CR-webtransport-20260730/).
+Для HTTP/3 опубликован [проект IETF редакции 16](https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-16).
+Эти статусы отличаются от зафиксированных в отчёте и ещё не означают
+окончательную W3C Recommendation или опубликованный RFC WebTransport over HTTP/3.
+:::
 
 В отчёте перечислены серверные реализации для Go, Rust, Python и C, а их зрелость
 названа менее равномерной, чем у WebSocket. Для проекта следует проверить
@@ -75,11 +78,14 @@ UDP сам по себе не гарантирует доставку. Надё�
 Сокращение транспортного рукопожатия — возможное преимущество QUIC,
 но время до готовности включает также установление сессии HTTP/3.
 
-!!! note "Рукопожатие QUIC и готовность WebTransport"
-    Оценки 1 RTT и 0 RTT в отчёте относятся к возможностям QUIC. Их нельзя
-    считать гарантированным временем до `transport.ready`. Редакция 16
-    [WebTransport over HTTP/3, раздел 3.2](https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-16#section-3.2)
-    запрещает инициировать сессию CONNECT в пакетах 0-RTT.
+:::{admonition} Рукопожатие QUIC и готовность WebTransport
+:class: note
+
+Оценки 1 RTT и 0 RTT в отчёте относятся к возможностям QUIC. Их нельзя
+считать гарантированным временем до `transport.ready`. Редакция 16
+[WebTransport over HTTP/3, раздел 3.2](https://datatracker.ietf.org/doc/html/draft-ietf-webtrans-http3-16#section-3.2)
+запрещает инициировать сессию CONNECT в пакетах 0-RTT.
+:::
 
 После установления сессии открытие потока не требует отдельного рукопожатия,
 но может ожидать доступного лимита потоков или разрешения управления потоком.

@@ -22,3 +22,43 @@
 
 **Статус исследования:** опубликованы теоретическое сравнение и план экспериментов.
 Измерения не проводились; прочерки в таблицах обозначают отсутствие данных.
+
+## Разработка и сборка
+
+Ветка `sphinx` использует Sphinx с MyST-Parser: исходные страницы остаются
+в Markdown в `docs/`, конфигурация находится в `docs/conf.py`, а навигация
+задаётся директивами `toctree` в `docs/index.md`.
+
+Требуется Python 3.12 или новее.
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m sphinx -b dirhtml -W docs site
+python -m http.server 8000 --directory site
+```
+
+Сайт доступен по адресу <http://localhost:8000/>. После изменения страниц
+повторите команду сборки и обновите браузер. Генератор `dirhtml` сохраняет
+адреса страниц вида `/websocket/`; `-W` делает предупреждения ошибками сборки.
+Для другого адреса публикации задайте переменную `SITE_URL` перед сборкой.
+
+GitHub Actions собирает сайт для push и pull request в `main` и `sphinx`.
+GitHub Pages публикуется при push или ручном запуске из этих веток.
+В настройках Pages выберите источник **GitHub Actions** и разрешите ветку
+`sphinx` в правилах окружения `github-pages`, если они ограничивают развёртывание.
+Обе ветки публикуются по одному адресу; последняя публикация заменяет предыдущую.
+
+Развёртывание на Helios включается переменной репозитория `HELIOS_ENABLED=true`.
+Задайте секреты `HELIOS_USER` (логин вида `s123456`),
+`HELIOS_SSH_PRIVATE_KEY` и `HELIOS_SSH_KNOWN_HOSTS` (проверенный ключ узла
+`[helios.cs.ifmo.ru]:2222`). Workflow публикует `site/` в
+`~/public_html/pyweb/`, используя адрес `https://se.ifmo.ru/~<логин>/pyweb/`.
+
+Официальная документация: [конфигурация Sphinx](https://www.sphinx-doc.org/en/master/usage/configuration.html),
+[сборка Sphinx](https://www.sphinx-doc.org/en/master/man/sphinx-build.html),
+[генератор dirhtml](https://www.sphinx-doc.org/en/master/usage/builders/index.html#sphinx.builders.dirhtml.DirectoryHTMLBuilder),
+[MyST-Parser](https://myst-parser.readthedocs.io/en/latest/intro.html),
+[навигация MyST](https://myst-parser.readthedocs.io/en/latest/syntax/organising_content.html)
+и [блоки примечаний MyST](https://myst-parser.readthedocs.io/en/latest/syntax/admonitions.html).

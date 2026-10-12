@@ -2,6 +2,7 @@
 venv/
 site/
 _build/
+.doctrees/
 __pycache__/
 *.py[cod]
 .cache/

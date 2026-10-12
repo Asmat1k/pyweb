@@ -4,70 +4,56 @@
 модели доставки, время подключения, задержка сообщений, накладные расходы
 и поведение при потерях пакетов.
 
-| Режим | Транспорт | Доставка |
-|---|---|---|
-| WebSocket | TLS/TCP | Надёжная, упорядоченная |
-| WebTransport streams | HTTP/3 поверх QUIC | Надёжная, порядок внутри потока |
-| WebTransport datagrams | HTTP/3 поверх QUIC | Без гарантии доставки и порядка |
+В проекте сравниваются защищённый WebSocket (`wss://`) поверх TCP и WebTransport
+поверх HTTP/3 и QUIC. Материалы включают теоретический обзор, методику и сценарии
+будущих экспериментов; в этой ветке сайт собирается с помощью Quarto.
+
+## WebSocket
+
+[WebSocket](https://github.com/whatwg/websockets) — постоянное двунаправленное
+соединение между браузером и сервером для обмена текстовыми и бинарными сообщениями.
+В рассматриваемом варианте `wss://` данные защищены TLS и передаются поверх TCP:
+доставка надёжная, порядок и границы сообщений сохраняются. Потеря пакета может
+задержать последующие сообщения до восстановления пропущенных данных.
+
+Технология подходит для чатов, уведомлений, команд и совместного редактирования,
+когда достаточно одного упорядоченного канала. Приложение отвечает за контроль
+очередей и восстановление сеанса после разрыва. По сравнению с WebTransport
+WebSocket проще вписать в существующую инфраструктуру, но он не предоставляет
+независимые потоки и передачу без гарантии доставки.
+
+## WebTransport
+
+[WebTransport](https://github.com/w3c/webtransport) — API обмена между браузером
+и сервером; в проекте рассматривается вариант поверх HTTP/3 и QUIC/UDP
+со встроенным TLS 1.3. В одной сессии доступны надёжные однонаправленные
+и двунаправленные потоки байтов, а также ненадёжные дейтаграммы. Потоки сохраняют
+порядок внутри каждого потока; дейтаграммы сохраняют границы записей,
+но не гарантируют доставку и порядок.
+
+В отличие от одного TCP-канала WebSocket, потеря данных в одном потоке QUIC
+не блокирует доставку других потоков, хотя они разделяют ресурсы соединения.
+Это позволяет сочетать надёжные команды с быстро устаревающими обновлениями,
+например координатами в игре или телеметрией. Нужны поддержка HTTP/3 и UDP,
+совместимые клиент и сервер; меньшая задержка не гарантирована и требует измерений.
 
 ## Материалы
 
-- [Область сравнения](docs/about.qmd)
-- [WebSocket](docs/websocket.qmd) и [WebTransport](docs/webtransport.qmd)
-- [Методика](docs/methodology.qmd) и [сценарии экспериментов](docs/scenarios.qmd)
-- [Результаты и предварительные выводы](docs/results.qmd)
-- [Источники](docs/references.qmd)
+- [Область сравнения](https://github.com/Asmat1k/pyweb/blob/quarto/docs/about.qmd)
+- [WebSocket](https://github.com/Asmat1k/pyweb/blob/quarto/docs/websocket.qmd) и [WebTransport](https://github.com/Asmat1k/pyweb/blob/quarto/docs/webtransport.qmd)
+- [Методика](https://github.com/Asmat1k/pyweb/blob/quarto/docs/methodology.qmd) и [сценарии экспериментов](https://github.com/Asmat1k/pyweb/blob/quarto/docs/scenarios.qmd)
+- [Результаты и предварительные выводы](https://github.com/Asmat1k/pyweb/blob/quarto/docs/results.qmd)
+- [Источники](https://github.com/Asmat1k/pyweb/blob/quarto/docs/references.qmd)
 
 Материалы доступны на [сайте](https://asmat1k.github.io/pyweb/).
 
 **Статус исследования:** опубликованы теоретическое сравнение и план экспериментов.
 Измерения не проводились; прочерки в таблицах обозначают отсутствие данных.
 
+## Quarto — `quarto`
 
-## Сборка на Quarto
-
-Ветка `quarto` использует [Quarto CLI](https://quarto.org/docs/get-started/).
-Python и MkDocs для сборки не нужны. Конфигурация находится в
-`docs/_quarto.yml`, материалы — в `docs/*.qmd`.
-
-Предпросмотр из корня репозитория:
-
-```sh
-quarto preview docs
-```
-
-Сборка статического сайта:
-
-```sh
-quarto render docs
-```
-
-Готовые файлы появляются в `docs/_site/`; главная страница — `index.html`.
-Внутренние ссылки указывают на `.qmd`, Quarto преобразует их в ссылки на HTML.
-Информационные блоки используют встроенные callouts Quarto.
-
-## CI/CD
-
-GitHub Actions автоматически собирает сайт при push и pull request в `main`.
-GitHub Pages автоматически публикуется только при push в `main`; pull request
-выполняет только сборку. В остальных ветках запуск ручной: Actions →
-GitHub Pages или Helios → Run workflow → выбрать ветку → Run workflow.
-Ручной запуск собирает и публикует выбранную ветку. GitHub Pages получает
-артефакт `docs/_site/`. В Settings → Pages выберите источник GitHub Actions
-и разрешите выбранную ветку в правилах окружения `github-pages`.
-
-Helios автоматически запускается при push в `main` или вручную из
-выбранной ветки только при переменной репозитория
-`HELIOS_ENABLED=true`. Задайте секреты `HELIOS_USER` (логин вида `s123456`),
-`HELIOS_SSH_PRIVATE_KEY` и `HELIOS_SSH_KNOWN_HOSTS` (проверенный ключ хоста
-`[helios.cs.ifmo.ru]:2222`). Workflow создаёт временный профиль Quarto
-`helios` с адресом `https://se.ifmo.ru/~<HELIOS_USER>/pyweb/` и публикует
-HTML в `~/public_html/pyweb/`. Профиль не хранит секреты в репозитории.
-
-Официальная документация:
-
-- [Сайты и внутренние ссылки](https://quarto.org/docs/websites/).
-- [Навигация](https://quarto.org/docs/websites/website-navigation.html).
-- [Callout-блоки](https://quarto.org/docs/authoring/callouts.html).
-- [Профили проекта](https://quarto.org/docs/projects/profiles.html).
-- [Публикация через CI](https://quarto.org/docs/publishing/ci.html).
+[Quarto](https://github.com/quarto-dev/quarto-cli) — система публикации
+научных и технических документов и сайтов. В
+[ветке `quarto`](https://github.com/Asmat1k/pyweb/tree/quarto) используются
+страницы `docs/*.qmd` и конфигурация `docs/_quarto.yml`.
+Сборка: `quarto render docs`.

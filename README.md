@@ -48,11 +48,16 @@ quarto render docs
 
 ## CI/CD
 
-GitHub Actions собирает сайт при push и pull request в `main` и `quarto`.
-При push или ручном запуске этих веток GitHub Pages получает артефакт
-`docs/_site/`. В Settings → Pages выберите источник GitHub Actions.
+GitHub Actions автоматически собирает сайт при push и pull request в `main`.
+GitHub Pages автоматически публикуется только при push в `main`; pull request
+выполняет только сборку. В остальных ветках запуск ручной: Actions →
+GitHub Pages или Helios → Run workflow → выбрать ветку → Run workflow.
+Ручной запуск собирает и публикует выбранную ветку. GitHub Pages получает
+артефакт `docs/_site/`. В Settings → Pages выберите источник GitHub Actions
+и разрешите выбранную ветку в правилах окружения `github-pages`.
 
-Helios запускается для `main` и `quarto` только при переменной репозитория
+Helios автоматически запускается при push в `main` или вручную из
+выбранной ветки только при переменной репозитория
 `HELIOS_ENABLED=true`. Задайте секреты `HELIOS_USER` (логин вида `s123456`),
 `HELIOS_SSH_PRIVATE_KEY` и `HELIOS_SSH_KNOWN_HOSTS` (проверенный ключ хоста
 `[helios.cs.ifmo.ru]:2222`). Workflow создаёт временный профиль Quarto

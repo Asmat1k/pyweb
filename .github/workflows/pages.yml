@@ -2,9 +2,9 @@ name: GitHub Pages
 
 on:
   push:
-    branches: [main, quarto]
+    branches: [main]
   pull_request:
-    branches: [main, quarto]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -23,12 +23,12 @@ jobs:
       - name: Render website
         run: quarto render docs
       - uses: actions/upload-pages-artifact@v3
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/quarto') && github.event_name != 'pull_request'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         with:
           path: docs/_site
 
   deploy:
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/quarto') && github.event_name != 'pull_request'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     permissions:

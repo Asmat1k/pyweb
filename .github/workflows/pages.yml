@@ -76,7 +76,7 @@ jobs:
 
   # Отдельное последнее задание запускается только после успешной публикации.
   verify:
-    name: Проверка публикации
+    name: Проверка
     needs: deploy
     runs-on: ubuntu-latest
     timeout-minutes: 10

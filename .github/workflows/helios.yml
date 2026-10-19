@@ -17,6 +17,10 @@ on:
         description: "Контрольная строка (несуществующая строка позволяет проверить обработку ошибки)"
         type: string
         default: ''
+      rollback_demo:
+        description: "Только codex/rollback-demo: повредить артефакт для демонстрации автоматического отката"
+        type: boolean
+        default: true
 
 # Для сборки достаточно чтения репозитория; дополнительные права выдаются при публикации.
 permissions:
@@ -80,6 +84,11 @@ jobs:
       # Метаданные входят в тот же артефакт и проверяются по HTTP после публикации.
       - name: Добавление сведений о сборке
         run: python scripts/build-info.py
+      # Push создаёт исправное превью. Ручной запуск публикует повреждённый
+      # артефакт: ошибка сборки до deploy не запустила бы автоматический откат.
+      - name: "Демо: повреждение идентификатора релиза в HTML"
+        if: github.ref == 'refs/heads/codex/rollback-demo' && github.event_name == 'workflow_dispatch' && inputs.rollback_demo
+        run: python scripts/break-demo-artifact.py
       # Передаём готовую сборку в job публикации, сохраняя скрытый файл .helios-release.
       - name: Сохранение артефакта сборки
         uses: actions/upload-artifact@v4

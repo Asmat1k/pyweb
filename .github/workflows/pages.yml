@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   build:
-    name: Сборка сайта
+    name: Сборка
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,7 +38,7 @@ jobs:
       - name: "Установка зависимостей"
         run: python -m pip install -r requirements.txt
       # Предупреждения MkDocs, в том числе о битых ссылках, прерывают сборку.
-      - name: "Строгая сборка сайта"
+      - name: "Строгая сборка"
         run: python -m mkdocs build --strict
       # Маркер связывает HTML с конкретным коммитом и попыткой запуска.
       - name: "Добавление идентификатора релиза"
@@ -52,7 +52,7 @@ jobs:
           path: site
 
   deploy:
-    name: Публикация сайта
+    name: Публикация
     # Даже при ручном запуске из другой ветки основной сайт не обновляется.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
@@ -70,7 +70,7 @@ jobs:
     steps:
       - name: Настройка GitHub Pages
         uses: actions/configure-pages@v5
-      - name: "Публикация сайта"
+      - name: "Публикация"
         id: deployment
         uses: actions/deploy-pages@v5
 

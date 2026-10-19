@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   build:
-    name: Сборка сайта
+    name: Сборка
     # Откат использует файлы на сервере и не требует повторной сборки.
     if: inputs.operation != 'rollback'
     runs-on: ubuntu-latest
@@ -48,19 +48,19 @@ jobs:
         with:
           python-version: '3.14'
           cache: pip
-      - name: "Определение генератора сайта"
+      - name: "Определение генератора "
         run: |
           if [[ -f mkdocs.yml ]]; then generator=mkdocs
           elif [[ -f pelicanconf.py ]]; then generator=pelican
           elif [[ -f docs/conf.py ]]; then generator=sphinx
           elif [[ -f docs/_quarto.yml ]]; then generator=quarto
-          else echo 'Поддерживаемый генератор сайта не найден'; exit 1
+          else echo 'Поддерживаемый генератор не найден'; exit 1
           fi
           echo "GENERATOR=$generator" >> "$GITHUB_ENV"
       - name: Установка Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         if: env.GENERATOR == 'quarto'
-      - name: "Сборка сайта"
+      - name: "Сборка"
         run: |
           if [[ -f requirements.txt ]]; then python -m pip install -r requirements.txt; fi
           case "$GENERATOR" in
@@ -77,6 +77,9 @@ jobs:
           # Комментарий позволяет отличить свежий релиз от старого HTML в кеше.
           printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
           printf '%s\n' "$RELEASE" > site/.helios-release
+      # Метаданные входят в тот же артефакт и проверяются по HTTP после публикации.
+      - name: Добавление сведений о сборке
+        run: python scripts/build-info.py
       # Передаём готовую сборку в job публикации, сохраняя скрытый файл .helios-release.
       - name: Сохранение артефакта сборки
         uses: actions/upload-artifact@v4
@@ -88,7 +91,7 @@ jobs:
           retention-days: 7
 
   deploy:
-    name: Публикация сайта
+    name: Публикация
     needs: build
     outputs:
       release: ${{ steps.result.outputs.release }}
@@ -260,9 +263,13 @@ jobs:
             ConnectTimeout 15
           SSH
       # Ошибка проверки оставляет задание красным даже после успешного восстановления.
-      - name: "Проверка опубликованного HTML"
+      - name: "Проверка HTML, поискового индекса и сведений о сборке"
         id: healthcheck
-        run: python scripts/helios-healthcheck.py "$SITE_URL" "$HEALTHCHECK_MARKER" "$RELEASE"
+        run: |
+          options=()
+          if [[ "$OPERATION" == rollback ]]; then options+=(--allow-missing-info); fi
+          python scripts/helios-healthcheck.py "$SITE_URL" "$HEALTHCHECK_MARKER" "$RELEASE" \
+            --report "$RUNNER_TEMP/helios-summary.md" "${options[@]}"
       - name: "Откат после ошибки проверки публикации"
         if: failure() && steps.healthcheck.outcome == 'failure'
         run: |
@@ -277,10 +284,10 @@ jobs:
       - name: "Очистка старых релизов после успешной публикации"
         if: success() && env.OPERATION == 'deploy'
         run: ssh -l "$HELIOS_USER" helios-deploy "bash -s -- prune '$TARGET'" < scripts/helios-remote.sh
+      # Сводка появляется только после успешной проверки; статусы взяты из HTTP-ответов.
       - name: "Сводка публикации"
-        if: always()
-        run: |
-          printf '### Helios\n\n- Операция: %s\n- URL: %s\n- Релиз: `%s`\n- Статус задания: %s\n' "$OPERATION" "$SITE_URL" "$RELEASE" '${{ job.status }}' >> "$GITHUB_STEP_SUMMARY"
+        if: success()
+        run: cat "$RUNNER_TEMP/helios-summary.md" >> "$GITHUB_STEP_SUMMARY"
       # Удаляем секреты с runner даже после ошибки предыдущих шагов.
       - name: "Удаление SSH-ключа и настроек подключения"
         if: always()

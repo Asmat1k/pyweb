@@ -5,8 +5,8 @@ operation=${1:?operation required}
 target=${2:?target required}
 release=${3:-}
 [[ "$target" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]] || { echo 'Invalid target' >&2; exit 1; }
-[[ "$operation" == prepare || "$operation" == activate || "$operation" == rollback ]] || exit 1
-if [[ "$operation" != rollback ]]; then
+[[ "$operation" == prepare || "$operation" == activate || "$operation" == rollback || "$operation" == prune ]] || exit 1
+if [[ "$operation" == prepare || "$operation" == activate ]]; then
     [[ "$release" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ ]] || { echo 'Invalid release' >&2; exit 1; }
 fi
 
@@ -34,6 +34,19 @@ fi
 # Блокировка защищает также от ручного переключения через SSH.
 mkdir "$state/lock" || { echo 'Another switch is running (or a stale lock exists)' >&2; exit 1; }
 trap 'rmdir "$state/lock"' EXIT
+if [[ "$operation" == prune ]]; then
+    # Keep live + previous + the three newest managed history directories.
+    # Never follow links or remove directories without our release marker.
+    count=0
+    while IFS= read -r name; do
+        archived="$state/history/$name"
+        [[ "$name" =~ ^[0-9]{8}T[0-9]{6}-[0-9]+$ ]] || continue
+        [[ -d "$archived" && ! -L "$archived" && -f "$archived/.helios-release" ]] || continue
+        count=$((count + 1))
+        if (( count > 3 )); then rm -rf -- "$archived"; fi
+    done < <(LC_ALL=C ls -1 "$state/history" | LC_ALL=C sort -r)
+    exit 0
+fi
 if [[ "$operation" == activate ]]; then
     [[ ! -L "$stage" && -s "$stage/index.html" && -f "$stage/.helios-release" ]]
     [[ "$(cat "$stage/.helios-release")" == "$release" ]]

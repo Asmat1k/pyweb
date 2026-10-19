@@ -3,6 +3,7 @@ name: Helios
 on:
   push:
     branches: ['**']
+  pull_request:
   workflow_dispatch:
     inputs:
       operation:
@@ -18,14 +19,71 @@ on:
 permissions:
   contents: read
 
-# Деплой и откат выполняются по очереди; начатое переключение не прерываем.
-concurrency:
-  group: helios
-  cancel-in-progress: false
-
 jobs:
+  build:
+    if: inputs.operation != 'rollback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      SITE_URL: ${{ vars.HELIOS_SITE_URL || 'https://asmat1k.github.io/pyweb/' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+      - name: Test deployment scripts
+        run: python -m unittest discover -s tests -v
+      - name: Detect generator
+        run: |
+          if [[ -f mkdocs.yml ]]; then generator=mkdocs
+          elif [[ -f pelicanconf.py ]]; then generator=pelican
+          elif [[ -f docs/conf.py ]]; then generator=sphinx
+          elif [[ -f docs/_quarto.yml ]]; then generator=quarto
+          else echo 'No supported site generator found'; exit 1
+          fi
+          echo "GENERATOR=$generator" >> "$GITHUB_ENV"
+      - uses: quarto-dev/quarto-actions/setup@v2
+        if: env.GENERATOR == 'quarto'
+      - name: Build website
+        run: |
+          if [[ -f requirements.txt ]]; then python -m pip install -r requirements.txt; fi
+          case "$GENERATOR" in
+            mkdocs) python -m mkdocs build --strict ;;
+            pelican) python -m pelican docs -s pelicanconf.py -o site ;;
+            sphinx) python -m sphinx -b dirhtml -W docs site ;;
+            quarto)
+              printf 'website:\n  site-url: "%s"\n' "$SITE_URL" > docs/_quarto-helios.yml
+              quarto render docs --profile helios
+              mv docs/_site site
+              ;;
+          esac
+          test -s site/index.html
+          # Комментарий позволяет отличить свежий релиз от старого HTML в кеше.
+          printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
+          printf '%s\n' "$RELEASE" > site/.helios-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-helios
+          path: site
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
   deploy:
-    if: vars.HELIOS_ENABLED == 'true'
+    needs: build
+    if: >-
+      always() && !cancelled() && vars.HELIOS_ENABLED == 'true' &&
+      github.event_name != 'pull_request' && github.ref_type == 'branch' &&
+      (needs.build.result == 'success' ||
+       (inputs.operation == 'rollback' && needs.build.result == 'skipped'))
+    # Serialize server mutations; PR builds do not occupy this queue.
+    concurrency:
+      group: helios
+      cancel-in-progress: false
+    environment:
+      name: helios
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -38,7 +96,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
       - name: Select publication directory
         shell: bash
         run: |
@@ -57,36 +115,11 @@ jobs:
               f.write(f'TARGET={target}\nRELEASE={release}\n')
               f.write(f'SITE_URL=https://se.ifmo.ru/~{os.environ["HELIOS_USER"]}/{path}/\n')
           PY
-      - name: Detect generator
+      - uses: actions/download-artifact@v4
         if: env.OPERATION == 'deploy'
-        run: |
-          if [[ -f mkdocs.yml ]]; then generator=mkdocs
-          elif [[ -f pelicanconf.py ]]; then generator=pelican
-          elif [[ -f docs/conf.py ]]; then generator=sphinx
-          elif [[ -f docs/_quarto.yml ]]; then generator=quarto
-          else echo 'No supported site generator found'; exit 1
-          fi
-          echo "GENERATOR=$generator" >> "$GITHUB_ENV"
-      - uses: quarto-dev/quarto-actions/setup@v2
-        if: env.GENERATOR == 'quarto' && env.OPERATION == 'deploy'
-      - name: Build website
-        if: env.OPERATION == 'deploy'
-        run: |
-          if [[ -f requirements.txt ]]; then python -m pip install -r requirements.txt; fi
-          case "$GENERATOR" in
-            mkdocs) python -m mkdocs build --strict ;;
-            pelican) python -m pelican docs -s pelicanconf.py -o site ;;
-            sphinx) python -m sphinx -b dirhtml -W docs site ;;
-            quarto)
-              printf 'website:\n  site-url: "%s"\n' "$SITE_URL" > docs/_quarto-helios.yml
-              quarto render docs --profile helios
-              mv docs/_site site
-              ;;
-          esac
-          test -s site/index.html
-          # Комментарий позволяет отличить свежий релиз от старого HTML в кеше.
-          printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
-          printf '%s\n' "$RELEASE" > site/.helios-release
+        with:
+          name: site-helios
+          path: site
       - name: Configure dedicated deploy key
         shell: bash
         run: |
@@ -122,8 +155,25 @@ jobs:
           release=$(ssh -l "$HELIOS_USER" helios-deploy "bash -s -- rollback '$TARGET'" < scripts/helios-remote.sh)
           [[ "$release" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ || "$release" == legacy ]] || { echo 'Invalid restored release'; exit 1; }
           echo "RELEASE=$release" >> "$GITHUB_ENV"
+          if [[ "$release" == legacy && "$HEALTHCHECK_MARKER" == helios-pyweb ]]; then
+            echo 'HEALTHCHECK_MARKER=' >> "$GITHUB_ENV"
+          fi
       - name: Healthcheck published HTML
+        id: healthcheck
         run: python scripts/helios-healthcheck.py "$SITE_URL" "$HEALTHCHECK_MARKER" "$RELEASE"
+      - name: Recover after failed healthcheck
+        if: failure() && steps.healthcheck.outcome == 'failure'
+        run: |
+          restored=$(ssh -l "$HELIOS_USER" helios-deploy "bash -s -- rollback '$TARGET'" < scripts/helios-remote.sh)
+          # Use the normal marker even when deliberately testing failure.
+          # Legacy sites predate our marker and are checked by HTTP status.
+          marker=helios-pyweb
+          if [[ "$restored" == legacy ]]; then marker=''; fi
+          python scripts/helios-healthcheck.py "$SITE_URL" "$marker" "$restored"
+          printf '\nRestored release: `%s`\n' "$restored" >> "$GITHUB_STEP_SUMMARY"
+      - name: Prune old releases after successful publication
+        if: success() && env.OPERATION == 'deploy'
+        run: ssh -l "$HELIOS_USER" helios-deploy "bash -s -- prune '$TARGET'" < scripts/helios-remote.sh
       - name: Publication summary
         if: always()
         run: |

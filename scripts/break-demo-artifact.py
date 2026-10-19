@@ -13,7 +13,7 @@ def break_artifact(site, release):
 
 
 if __name__ == '__main__':
-    if (os.environ.get('GITHUB_REF') != 'refs/heads/codex/rollback-demo'
+    if (os.environ.get('GITHUB_REF') != 'refs/heads/fail-demo'
             or os.environ.get('GITHUB_EVENT_NAME') != 'workflow_dispatch'):
         raise SystemExit('Failure injection is restricted to manual rollback-demo runs')
     break_artifact(Path('site'), os.environ['RELEASE'])

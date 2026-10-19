@@ -18,7 +18,7 @@ on:
         type: string
         default: ''
       rollback_demo:
-        description: "Только codex/rollback-demo: повредить артефакт для демонстрации автоматического отката"
+        description: "Повредить артефакт для демонстрации автоматического отката"
         type: boolean
         default: true
 

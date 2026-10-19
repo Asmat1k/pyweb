@@ -83,7 +83,7 @@ jobs:
       # Push создаёт исправное превью. Ручной запуск публикует повреждённый
       # артефакт: ошибка сборки до deploy не запустила бы автоматический откат.
       - name: "Демо: повреждение идентификатора релиза в HTML"
-        if: github.ref == 'refs/heads/codex/rollback-demo' && github.event_name == 'workflow_dispatch' && inputs.rollback_demo
+        if: github.ref == 'refs/heads/fail-demo' && github.event_name == 'workflow_dispatch' && inputs.rollback_demo
         run: python scripts/break-demo-artifact.py
       # Передаём готовую сборку в job публикации, сохраняя скрытый файл .helios-release.
       - name: Сохранение артефакта сборки

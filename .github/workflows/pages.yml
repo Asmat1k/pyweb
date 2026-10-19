@@ -1,5 +1,6 @@
-name: GitHub Pages
+name: "Публикация на GitHub Pages"
 
+# Проверяем main и запросы на слияние в неё; ручной запуск доступен в Actions.
 on:
   push:
     branches: [main]
@@ -7,43 +8,85 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Для сборки достаточно чтения репозитория; дополнительные права выдаются при публикации.
 permissions:
   contents: read
 
+# Запуски одной ветки выполняются по очереди; начатую публикацию не прерываем.
 concurrency:
   group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
+    name: Сборка
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - name: Получение исходников
+        uses: actions/checkout@v5
+      - name: Установка Python
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: pip
-      - name: Install dependencies
+      - name: Установка зависимостей
         run: python -m pip install -r requirements.txt
-      - name: Build strictly
-        run: python -m sphinx -b dirhtml -W docs site
-      - uses: actions/upload-pages-artifact@v3
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+      - name: Сборка Sphinx
+        run: |
+          python -m sphinx -b dirhtml -W docs site
+          test -s site/index.html
+      # Маркер связывает HTML с конкретным коммитом и попыткой запуска.
+      - name: "Добавление идентификатора релиза"
+        env:
+          RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
+      - name: Сохранение сборки для GitHub Pages
+        uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: site
 
   deploy:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    name: Публикация
+    # Даже при ручном запуске из другой ветки основной сайт не обновляется.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
+      contents: read
       pages: write
       id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/configure-pages@v5
-      - name: Deploy
+      - name: Настройка GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: "Публикация"
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Отдельное последнее задание запускается только после успешной публикации.
+  verify:
+    name: Проверка
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получение исходников
+        uses: actions/checkout@v5
+      - name: Установка Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      # Проверяем публичный URL из результата деплоя: HTTP 200, маркер и версию HTML.
+      - name: "Проверка опубликованного релиза"
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.page_url }}
+          MARKER: helios-pyweb
+          RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: python scripts/helios-healthcheck.py "$SITE_URL" "$MARKER" "$RELEASE"

@@ -1,60 +1,290 @@
-name: Helios
+name: "Публикация на Helios"
 
+# main публикуется как основной сайт, остальные ветки — как отдельные превью.
+# В запросах на слияние выполняется только сборка, без доступа к SSH-секретам.
 on:
   push:
-    branches: [main]
+    branches: ['**']
+  pull_request:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: "Операция: deploy — публикация ветки, rollback — восстановление предыдущей версии"
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
 
+# Для сборки достаточно чтения репозитория; дополнительные права выдаются при публикации.
 permissions:
   contents: read
 
+# Блокируем весь цикл публикации вместе с проверкой и возможным откатом.
+# Иначе следующий запуск может заменить сайт до проверки предыдущего релиза.
+# Сборки PR используют отдельные группы и не мешают публикациям.
 concurrency:
-  group: helios
+  group: helios-${{ github.event_name == 'pull_request' && github.ref || 'publication' }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    # Enable only after replacing the documented placeholders with real secrets.
-    if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && vars.HELIOS_ENABLED == 'true'
+  build:
+    name: Сборка
+    # Откат использует файлы на сервере и не требует повторной сборки.
+    if: inputs.operation != 'rollback'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      # Канонический URL сборки; адрес HTTP-проверки вычисляется отдельно при публикации.
+      SITE_URL: ${{ vars.HELIOS_SITE_URL || 'https://asmat1k.github.io/pyweb/' }}
+    steps:
+      - name: Получение исходников
+        uses: actions/checkout@v5
+      - name: Установка Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+      - name: "Определение генератора "
+        run: |
+          if [[ -f mkdocs.yml ]]; then generator=mkdocs
+          elif [[ -f pelicanconf.py ]]; then generator=pelican
+          elif [[ -f docs/conf.py ]]; then generator=sphinx
+          elif [[ -f docs/_quarto.yml ]]; then generator=quarto
+          else echo 'Поддерживаемый генератор не найден'; exit 1
+          fi
+          echo "GENERATOR=$generator" >> "$GITHUB_ENV"
+      - name: Установка Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        if: env.GENERATOR == 'quarto'
+      - name: "Сборка"
+        run: |
+          if [[ -f requirements.txt ]]; then python -m pip install -r requirements.txt; fi
+          case "$GENERATOR" in
+            mkdocs) python -m mkdocs build --strict ;;
+            pelican) python -m pelican docs -s pelicanconf.py -o site ;;
+            sphinx) python -m sphinx -b dirhtml -W docs site ;;
+            quarto)
+              printf 'website:\n  site-url: "%s"\n' "$SITE_URL" > docs/_quarto-helios.yml
+              quarto render docs --profile helios
+              mv docs/_site site
+              ;;
+          esac
+          test -s site/index.html
+          # Комментарий позволяет отличить свежий релиз от старого HTML в кеше.
+          printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
+          printf '%s\n' "$RELEASE" > site/.helios-release
+      # Метаданные входят в тот же артефакт и проверяются по HTTP после публикации.
+      - name: Добавление сведений о сборке
+        run: python scripts/build-info.py
+      # Передаём готовую сборку в job публикации, сохраняя скрытый файл .helios-release.
+      - name: Сохранение артефакта сборки
+        uses: actions/upload-artifact@v6
+        with:
+          name: site-helios
+          path: site
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Публикация
+    needs: build
+    outputs:
+      release: ${{ steps.result.outputs.release }}
+    # Публикация включается переменной HELIOS_ENABLED; PR и отменённые запуски исключены.
+    # При ручном откате пропуск сборки ожидаем и не блокируем восстановление.
+    if: >-
+      always() && !cancelled() && vars.HELIOS_ENABLED == 'true' &&
+      github.event_name != 'pull_request' && github.ref_type == 'branch' &&
+      (needs.build.result == 'success' ||
+       (inputs.operation == 'rollback' && needs.build.result == 'skipped'))
+    environment:
+      name: helios
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       HELIOS_USER: ${{ secrets.HELIOS_USER }}
       HELIOS_SSH_PRIVATE_KEY: ${{ secrets.HELIOS_SSH_PRIVATE_KEY }}
       HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
+      OPERATION: ${{ inputs.operation || 'deploy' }}
+      HEALTHCHECK_MARKER: helios-pyweb
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - name: Получение исходников
+        uses: actions/checkout@v5
+      - name: Установка Python
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
-          cache: pip
-      - name: Configure SSH
+          python-version: '3.14'
+      - name: "Выбор каталога и адреса публикации"
         shell: bash
         run: |
-          [[ "$HELIOS_USER" =~ ^s[0-9]+$ ]] || { echo "::error::Set HELIOS_USER to your Helios student login"; exit 1; }
-          [[ -n "$HELIOS_SSH_PRIVATE_KEY" && -n "$HELIOS_SSH_KNOWN_HOSTS" ]] || { echo "::error::Set SSH secrets before deployment"; exit 1; }
+          [[ "$GITHUB_REF_TYPE" == branch ]] || { echo 'Публикация разрешена только из веток'; exit 1; }
+          [[ "$HELIOS_USER" =~ ^s[0-9]+$ ]] || { echo 'Укажите студенческий логин в HELIOS_USER'; exit 1; }
+          python - <<'PY'
+          import hashlib, os, re
+          branch = os.environ['GITHUB_REF_NAME']
+          # Убираем опасные символы, а хеш полного имени различает ветки,
+          # которые после нормализации получили одинаковый slug.
+          slug = re.sub(r'[^a-z0-9-]+', '-', branch.lower()).strip('-')[:40] or 'branch'
+          target = 'main' if branch == 'main' else slug + '-' + hashlib.sha256(branch.encode()).hexdigest()[:12]
+          path = 'pyweb' if target == 'main' else 'pyweb-previews/' + target
+          release = f'{os.environ["GITHUB_SHA"]}-{os.environ["GITHUB_RUN_ID"]}-{os.environ["GITHUB_RUN_ATTEMPT"]}'
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'TARGET={target}\nRELEASE={release}\n')
+              f.write(f'SITE_URL=https://se.ifmo.ru/~{os.environ["HELIOS_USER"]}/{path}/\n')
+          PY
+      - name: Загрузка артефакта сборки
+        uses: actions/download-artifact@v7
+        if: env.OPERATION == 'deploy'
+        with:
+          name: site-helios
+          path: site
+      # Доверяем только ключу хоста из секрета; автоматическое принятие новых ключей запрещено.
+      - name: "Настройка SSH-ключа публикации"
+        shell: bash
+        run: |
+          [[ -n "$HELIOS_SSH_PRIVATE_KEY" && -n "$HELIOS_SSH_KNOWN_HOSTS" ]] || { echo 'Перед публикацией задайте SSH-секреты'; exit 1; }
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$HELIOS_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$HELIOS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          printf '%s\n' "$HELIOS_SSH_PRIVATE_KEY" > ~/.ssh/helios_deploy
+          printf '%s\n' "$HELIOS_SSH_KNOWN_HOSTS" > ~/.ssh/helios_known_hosts
+          chmod 600 ~/.ssh/helios_deploy ~/.ssh/helios_known_hosts
           cat > ~/.ssh/config <<'SSH'
           Host helios-deploy
             HostName helios.cs.ifmo.ru
             Port 2222
-            IdentityFile ~/.ssh/id_ed25519
+            IdentityFile ~/.ssh/helios_deploy
+            UserKnownHostsFile ~/.ssh/helios_known_hosts
             IdentitiesOnly yes
             BatchMode yes
             StrictHostKeyChecking yes
             ConnectTimeout 15
           SSH
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Build for Helios
-        run: SITE_URL="https://se.ifmo.ru/~${HELIOS_USER}/pyweb/" pelican docs -s pelicanconf.py
-      - name: Publish static HTML
+      - name: "Загрузка и активация релиза"
+        if: env.OPERATION == 'deploy'
         run: |
-          ssh -l "$HELIOS_USER" helios-deploy 'test ! -L ~/public_html && test ! -L ~/public_html/pyweb && mkdir -p ~/public_html/pyweb && chmod 755 ~/public_html/pyweb'
-          rsync -rtz --delete --chmod=D755,F644 -e ssh output/ "${HELIOS_USER}@helios-deploy:public_html/pyweb/"
-      - name: Remove runner credentials
+          # Передаём сайт в staging и переключаем публикацию только после
+          # успешного rsync. --delete действует только на каталог этой загрузки.
+          ssh -l "$HELIOS_USER" helios-deploy "bash -s -- prepare '$TARGET' '$RELEASE'" < scripts/helios-remote.sh
+          rsync -rtz --delete --chmod=D755,F644 -e ssh site/ "${HELIOS_USER}@helios-deploy:.helios-pyweb/$TARGET/staging/$RELEASE/"
+          ssh -l "$HELIOS_USER" helios-deploy "bash -s -- activate '$TARGET' '$RELEASE'" < scripts/helios-remote.sh
+      - name: "Восстановление предыдущей версии"
+        if: env.OPERATION == 'rollback'
+        run: |
+          # Сервер возвращает ID восстановленной версии; healthcheck должен
+          # ожидать именно её, а не SHA коммита, из которого запущен workflow.
+          release=$(ssh -l "$HELIOS_USER" helios-deploy "bash -s -- rollback '$TARGET'" < scripts/helios-remote.sh)
+          [[ "$release" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ || "$release" == legacy ]] || { echo 'Некорректный идентификатор восстановленного релиза'; exit 1; }
+          echo "RELEASE=$release" >> "$GITHUB_ENV"
+          if [[ "$release" == legacy && "$HEALTHCHECK_MARKER" == helios-pyweb ]]; then
+            echo 'HEALTHCHECK_MARKER=' >> "$GITHUB_ENV"
+          fi
+      # Передаём фактически активированный релиз, в том числе при ручном откате.
+      # URL вычисляем в следующем задании заново: он содержит секрет HELIOS_USER,
+      # поэтому GitHub может запретить его передачу через outputs.
+      - name: Передача идентификатора опубликованного релиза
+        id: result
+        run: echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+      # Удаляем секреты с runner даже после ошибки предыдущих шагов.
+      - name: "Удаление SSH-ключа и настроек подключения"
         if: always()
-        run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.ssh/config
+        run: rm -f ~/.ssh/helios_deploy ~/.ssh/helios_known_hosts ~/.ssh/config
+
+  verify:
+    name: Проверка
+    needs: deploy
+    # Явное условие позволяет проверить ручной откат, при котором build пропущен.
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    environment:
+      name: helios
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HELIOS_USER: ${{ secrets.HELIOS_USER }}
+      HELIOS_SSH_PRIVATE_KEY: ${{ secrets.HELIOS_SSH_PRIVATE_KEY }}
+      HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
+      OPERATION: ${{ inputs.operation || 'deploy' }}
+      HEALTHCHECK_MARKER: helios-pyweb
+    steps:
+      - name: Получение исходников
+        uses: actions/checkout@v5
+      - name: Установка Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: "Выбор каталога и адреса публикации"
+        shell: bash
+        run: |
+          [[ "$GITHUB_REF_TYPE" == branch ]] || { echo 'Публикация разрешена только из веток'; exit 1; }
+          [[ "$HELIOS_USER" =~ ^s[0-9]+$ ]] || { echo 'Укажите студенческий логин в HELIOS_USER'; exit 1; }
+          python - <<'PY'
+          import hashlib, os, re
+          branch = os.environ['GITHUB_REF_NAME']
+          # Убираем опасные символы, а хеш полного имени различает ветки,
+          # которые после нормализации получили одинаковый slug.
+          slug = re.sub(r'[^a-z0-9-]+', '-', branch.lower()).strip('-')[:40] or 'branch'
+          target = 'main' if branch == 'main' else slug + '-' + hashlib.sha256(branch.encode()).hexdigest()[:12]
+          path = 'pyweb' if target == 'main' else 'pyweb-previews/' + target
+          release = f'{os.environ["GITHUB_SHA"]}-{os.environ["GITHUB_RUN_ID"]}-{os.environ["GITHUB_RUN_ATTEMPT"]}'
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'TARGET={target}\nRELEASE={release}\n')
+              f.write(f'SITE_URL=https://se.ifmo.ru/~{os.environ["HELIOS_USER"]}/{path}/\n')
+          PY
+      - name: Выбор релиза для проверки
+        env:
+          DEPLOYED_RELEASE: ${{ needs.deploy.outputs.release }}
+        run: |
+          [[ "$DEPLOYED_RELEASE" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ || "$DEPLOYED_RELEASE" == legacy ]] || { echo 'Некорректный идентификатор релиза'; exit 1; }
+          echo "RELEASE=$DEPLOYED_RELEASE" >> "$GITHUB_ENV"
+          if [[ "$DEPLOYED_RELEASE" == legacy && "$HEALTHCHECK_MARKER" == helios-pyweb ]]; then
+            echo 'HEALTHCHECK_MARKER=' >> "$GITHUB_ENV"
+          fi
+      # Доверяем только ключу хоста из секрета; автоматическое принятие новых ключей запрещено.
+      - name: "Настройка SSH-ключа публикации"
+        shell: bash
+        run: |
+          [[ -n "$HELIOS_SSH_PRIVATE_KEY" && -n "$HELIOS_SSH_KNOWN_HOSTS" ]] || { echo 'Перед публикацией задайте SSH-секреты'; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$HELIOS_SSH_PRIVATE_KEY" > ~/.ssh/helios_deploy
+          printf '%s\n' "$HELIOS_SSH_KNOWN_HOSTS" > ~/.ssh/helios_known_hosts
+          chmod 600 ~/.ssh/helios_deploy ~/.ssh/helios_known_hosts
+          cat > ~/.ssh/config <<'SSH'
+          Host helios-deploy
+            HostName helios.cs.ifmo.ru
+            Port 2222
+            IdentityFile ~/.ssh/helios_deploy
+            UserKnownHostsFile ~/.ssh/helios_known_hosts
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+          SSH
+      # Ошибка проверки оставляет задание красным даже после успешного восстановления.
+      - name: "Проверка HTML, поискового индекса и сведений о сборке"
+        id: healthcheck
+        run: |
+          options=()
+          if [[ "$OPERATION" == rollback ]]; then options+=(--allow-missing-info); fi
+          python scripts/helios-healthcheck.py "$SITE_URL" "$HEALTHCHECK_MARKER" "$RELEASE" \
+            --report "$RUNNER_TEMP/helios-summary.md" "${options[@]}"
+      - name: "Откат после ошибки проверки публикации"
+        if: failure() && steps.healthcheck.outcome == 'failure'
+        run: |
+          restored=$(ssh -l "$HELIOS_USER" helios-deploy "bash -s -- rollback '$TARGET'" < scripts/helios-remote.sh)
+          # Для восстановленной версии используем штатный маркер.
+          # В старых сайтах legacy маркера нет: для них проверяем только HTTP-статус.
+          marker=helios-pyweb
+          if [[ "$restored" == legacy ]]; then marker=''; fi
+          python scripts/helios-healthcheck.py "$SITE_URL" "$marker" "$restored"
+          printf '\nВосстановленный релиз: `%s`\n' "$restored" >> "$GITHUB_STEP_SUMMARY"
+      # Оставляем текущую, предыдущую и до трёх архивных версий этой ветки.
+      - name: "Очистка старых релизов после успешной публикации"
+        if: success() && env.OPERATION == 'deploy'
+        run: ssh -l "$HELIOS_USER" helios-deploy "bash -s -- prune '$TARGET'" < scripts/helios-remote.sh
+      # Сводка появляется только после успешной проверки; статусы взяты из HTTP-ответов.
+      - name: "Сводка публикации"
+        if: success()
+        run: cat "$RUNNER_TEMP/helios-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      # Удаляем секреты с runner даже после ошибки предыдущих шагов.
+      - name: "Удаление SSH-ключа и настроек подключения"
+        if: always()
+        run: rm -f ~/.ssh/helios_deploy ~/.ssh/helios_known_hosts ~/.ssh/config

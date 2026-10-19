@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:
@@ -41,7 +41,7 @@ jobs:
           RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
       - name: Сохранение сборки для GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: site
@@ -64,20 +64,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Настройка GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: "Публикация"
         id: deployment
         uses: actions/deploy-pages@v5
 
   # Отдельное последнее задание запускается только после успешной публикации.
   verify:
-    name: Проверка публикации
+    name: Проверка
     needs: deploy
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:

@@ -42,7 +42,7 @@ jobs:
       SITE_URL: ${{ vars.HELIOS_SITE_URL || 'https://asmat1k.github.io/pyweb/' }}
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:
@@ -87,7 +87,7 @@ jobs:
         run: python scripts/break-demo-artifact.py
       # Передаём готовую сборку в job публикации, сохраняя скрытый файл .helios-release.
       - name: Сохранение артефакта сборки
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: site-helios
           path: site
@@ -119,7 +119,7 @@ jobs:
       HEALTHCHECK_MARKER: helios-pyweb
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:
@@ -143,7 +143,7 @@ jobs:
               f.write(f'SITE_URL=https://se.ifmo.ru/~{os.environ["HELIOS_USER"]}/{path}/\n')
           PY
       - name: Загрузка артефакта сборки
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         if: env.OPERATION == 'deploy'
         with:
           name: site-helios
@@ -199,7 +199,7 @@ jobs:
         run: rm -f ~/.ssh/helios_deploy ~/.ssh/helios_known_hosts ~/.ssh/config
 
   verify:
-    name: Проверка публикации
+    name: Проверка
     needs: deploy
     # Явное условие позволяет проверить ручной откат, при котором build пропущен.
     if: ${{ !cancelled() && needs.deploy.result == 'success' }}
@@ -215,7 +215,7 @@ jobs:
       HEALTHCHECK_MARKER: helios-pyweb
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:

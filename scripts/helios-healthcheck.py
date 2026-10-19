@@ -85,7 +85,7 @@ def check(url, marker, release, attempts=5, delay=3, report=None, allow_missing_
             print(f'Попытка {attempt}/{attempts}: {exc}', file=sys.stderr)
         if attempt < attempts:
             time.sleep(delay)
-    raise SystemExit(f'Проверка публикации не пройдена: {url}')
+    raise SystemExit(f'Проверка не пройдена: {url}')
 
 
 if __name__ == '__main__':

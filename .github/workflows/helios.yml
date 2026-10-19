@@ -13,10 +13,6 @@ on:
         type: choice
         options: [deploy, rollback]
         default: deploy
-      healthcheck_marker:
-        description: "Контрольная строка (несуществующая строка позволяет проверить обработку ошибки)"
-        type: string
-        default: ''
 
 # Для сборки достаточно чтения репозитория; дополнительные права выдаются при публикации.
 permissions:
@@ -111,7 +107,7 @@ jobs:
       HELIOS_SSH_PRIVATE_KEY: ${{ secrets.HELIOS_SSH_PRIVATE_KEY }}
       HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
       OPERATION: ${{ inputs.operation || 'deploy' }}
-      HEALTHCHECK_MARKER: ${{ inputs.healthcheck_marker || 'helios-pyweb' }}
+      HEALTHCHECK_MARKER: helios-pyweb
     steps:
       - name: Получение исходников
         uses: actions/checkout@v4
@@ -207,7 +203,7 @@ jobs:
       HELIOS_SSH_PRIVATE_KEY: ${{ secrets.HELIOS_SSH_PRIVATE_KEY }}
       HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
       OPERATION: ${{ inputs.operation || 'deploy' }}
-      HEALTHCHECK_MARKER: ${{ inputs.healthcheck_marker || 'helios-pyweb' }}
+      HEALTHCHECK_MARKER: helios-pyweb
     steps:
       - name: Получение исходников
         uses: actions/checkout@v4
@@ -274,7 +270,7 @@ jobs:
         if: failure() && steps.healthcheck.outcome == 'failure'
         run: |
           restored=$(ssh -l "$HELIOS_USER" helios-deploy "bash -s -- rollback '$TARGET'" < scripts/helios-remote.sh)
-          # Для восстановленной версии используем штатный маркер, даже при имитации ошибки.
+          # Для восстановленной версии используем штатный маркер.
           # В старых сайтах legacy маркера нет: для них проверяем только HTTP-статус.
           marker=helios-pyweb
           if [[ "$restored" == legacy ]]; then marker=''; fi

@@ -7,11 +7,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      healthcheck_marker:
-        description: "Контрольная строка для проверки ошибки публикации (необязательно)"
-        type: string
-        default: ''
 
 # Для сборки достаточно чтения репозитория; дополнительные права выдаются при публикации.
 permissions:
@@ -91,6 +86,6 @@ jobs:
       - name: "Проверка опубликованного релиза"
         env:
           SITE_URL: ${{ needs.deploy.outputs.page_url }}
-          MARKER: ${{ inputs.healthcheck_marker || 'helios-pyweb' }}
+          MARKER: helios-pyweb
           RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: python scripts/helios-healthcheck.py "$SITE_URL" "$MARKER" "$RELEASE"

@@ -38,7 +38,7 @@ jobs:
       SITE_URL: ${{ vars.HELIOS_SITE_URL || 'https://asmat1k.github.io/pyweb/' }}
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:
@@ -78,7 +78,7 @@ jobs:
         run: python scripts/build-info.py
       # Передаём готовую сборку в job публикации, сохраняя скрытый файл .helios-release.
       - name: Сохранение артефакта сборки
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: site-helios
           path: site
@@ -110,7 +110,7 @@ jobs:
       HEALTHCHECK_MARKER: helios-pyweb
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:
@@ -134,7 +134,7 @@ jobs:
               f.write(f'SITE_URL=https://se.ifmo.ru/~{os.environ["HELIOS_USER"]}/{path}/\n')
           PY
       - name: Загрузка артефакта сборки
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         if: env.OPERATION == 'deploy'
         with:
           name: site-helios
@@ -206,7 +206,7 @@ jobs:
       HEALTHCHECK_MARKER: helios-pyweb
     steps:
       - name: Получение исходников
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Установка Python
         uses: actions/setup-python@v6
         with:

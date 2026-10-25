@@ -1,20 +1,28 @@
 name: "Публикация на GitHub Pages"
 
-# Проверяем main и запросы на слияние в неё; ручной запуск доступен в Actions.
+# Публикуем любую ветку; ручной запуск доступен в Actions.
 on:
   push:
-    branches: [main]
+    # Старый вариант (замена строки ниже): branches: [main]
+    # Если вернуть его, событие будет запускать workflow только для main.
+    branches: ['**']
   pull_request:
-    branches: [main]
+  # Старый вариант (замена строки ниже): branches: [main]
+    # Если вернуть его, событие будет запускать workflow только для main.
+    branches: ['**']
   workflow_dispatch:
 
 # Для сборки достаточно чтения репозитория; дополнительные права выдаются при публикации.
 permissions:
   contents: read
 
-# Запуски одной ветки выполняются по очереди; начатую публикацию не прерываем.
+# Один сайт: публикации всех веток вместе с проверкой выполняются по очереди.
 concurrency:
-  group: pages-${{ github.ref }}
+  # Старый вариант (замена group ниже):
+  # group: pages-${{ github.ref }}
+  # Если вернуть его, разные ветки смогут одновременно перезаписывать общий сайт,
+  # и проверка одного запуска может получить релиз другого.
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'publication' }}
   cancel-in-progress: false
 
 jobs:
@@ -29,12 +37,39 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: pip
+      # Старый вариант сборки (вместо определения генератора и шага сборки ниже):
+      # - name: "Установка зависимостей"
+      #   run: python -m pip install -r requirements.txt
+      # - name: "Строгая сборка"
+      #   run: python -m mkdocs build --strict
+      # Если вернуть эти шаги, сборка будет рассчитана только на MkDocs;
+      # ветки с Pelican, Sphinx и Quarto не смогут собрать свой сайт.
+      - name: "Определение генератора"
+        run: |
+          if [[ -f mkdocs.yml ]]; then generator=mkdocs
+          elif [[ -f pelicanconf.py ]]; then generator=pelican
+          elif [[ -f docs/conf.py ]]; then generator=sphinx
+          elif [[ -f docs/_quarto.yml ]]; then generator=quarto
+          else echo 'Поддерживаемый генератор не найден'; exit 1
+          fi
+          echo "GENERATOR=$generator" >> "$GITHUB_ENV"
       - name: Установка Quarto
         uses: quarto-dev/quarto-actions/setup@v2
-      - name: Сборка Quarto
+        if: env.GENERATOR == 'quarto'
+      - name: "Сборка"
         run: |
-          quarto render docs
-          mv docs/_site site
+          if [[ -f requirements.txt ]]; then python -m pip install -r requirements.txt; fi
+          case "$GENERATOR" in
+            mkdocs) python -m mkdocs build --strict ;;
+            pelican) python -m pelican docs -s pelicanconf.py -o site ;;
+            sphinx) python -m sphinx -b dirhtml -W docs site ;;
+            quarto)
+              printf 'website:\n  site-url: "%s"\n' "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" > docs/_quarto-pages.yml
+              quarto render docs --profile pages
+              mv docs/_site site
+              ;;
+          esac
           test -s site/index.html
       # Маркер связывает HTML с конкретным коммитом и попыткой запуска.
       - name: "Добавление идентификатора релиза"
@@ -43,14 +78,21 @@ jobs:
         run: printf '\n<!-- helios-pyweb release:%s -->\n' "$RELEASE" >> site/index.html
       - name: Сохранение сборки для GitHub Pages
         uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        # Старый вариант (замена if ниже):
+        # if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        # Если вернуть его, артефакт публикации будет сохраняться только для main.
+        if: github.event_name != 'pull_request' && github.ref_type == 'branch'
         with:
           path: site
 
   deploy:
     name: Публикация
-    # Даже при ручном запуске из другой ветки основной сайт не обновляется.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # Публикуем выбранную ветку; PR выполняют только сборку.
+    # Старый вариант (замена if ниже):
+    # if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # Если вернуть его, из других веток останется только сборка:
+    # публикация и проверка будут пропущены даже при ручном запуске.
+    if: github.event_name != 'pull_request' && github.ref_type == 'branch'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -90,3 +132,9 @@ jobs:
           MARKER: helios-pyweb
           RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: python scripts/helios-healthcheck.py "$SITE_URL" "$MARKER" "$RELEASE"
+      # Раньше этого шага не было: без него Summary не содержит явной ссылки на результат.
+      - name: Ссылка на опубликованный сайт
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          printf 'Сайт опубликован и проверен: %s\n' "$SITE_URL" >> "$GITHUB_STEP_SUMMARY"

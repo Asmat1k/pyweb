@@ -48,6 +48,7 @@ nav:
     - Сценарии экспериментов: scenarios.md
     - Результаты: results.md
   - Источники: references.md
+  - Лицензии: LICENSE.md
 
 plugins:
   - search:
